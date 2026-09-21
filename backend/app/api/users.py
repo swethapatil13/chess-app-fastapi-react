@@ -3,13 +3,29 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.dependencies import get_db
-from app.schemas.user import UserCreate, UserResponse
-from app.services.user_service import create_user, get_user_by_id
+from app.schemas.user import UserCreate, UserResponse, UserLogin
+from app.services.user_service import create_user, get_user_by_id, authenticate_user
 
+from app.core.security import create_access_token
 router = APIRouter(
     prefix="/users",
     tags = ["Users"]
     )
+
+@router.post("/login")
+def login(user_data: UserLogin, db: Session = Depends(get_db)):
+    user = authenticate_user(db, user_data.username, user_data.password)
+
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid username or password."
+        )
+
+    access_token = create_access_token(user.id)
+    return {"access_token": access_token, "token_type": "bearer"}
+
+
 
 @router.post("", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 def create_user_endpoint(user_data: UserCreate, db: Session = Depends(get_db)):
